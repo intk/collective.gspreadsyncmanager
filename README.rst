@@ -5,7 +5,9 @@ Provides methods to sync content from GoogleSheets API
 
 Features
 ============
-- Synchronization between GoogleSheets API and a Plone site.
+- Synchronization between GoogleSheets API and Plone content.
+- Connection with the GoogleSheets API separated from the content sync. 
+- Other API connections can be plugged into the sync. The main sources of data for this project are Google Sheets. 
 
 Installation
 ===================
@@ -33,8 +35,10 @@ Add to your buildout.cfg::
 
 Dependencies
 ===============
-- collective.behavior.organization
+- gspread
+- oauth2client
 
 The following dependencies are not required unless the creation of pictures and translations is requested.
+
 - plone.namedfile
 - plone.app.multilingual 
