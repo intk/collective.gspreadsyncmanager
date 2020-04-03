@@ -8,6 +8,7 @@ Features
 - Synchronization between GoogleSheets API and Plone content.
 - Connection with the GoogleSheets API separated from the content sync. 
 - Other API connections can be plugged into the sync. The main sources of data for this project are Google Sheets. 
+- Compatible with Python 3 and Plone 5.2.x
 
 Installation
 ===================
