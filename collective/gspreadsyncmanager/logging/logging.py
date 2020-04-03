@@ -42,8 +42,8 @@ def logger(message, err=""):
 
     if print_message:
         if '[Status]' not in message:
-            print "[%s] %s Exception: %s" %(timestamp, message, err)
+            print("[%s] %s Exception: %s" %(timestamp, message, err))
         else:
-            print "[%s] %s" %(timestamp, message)
+            print("[%s] %s" %(timestamp, message))
     else:
         pass

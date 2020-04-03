@@ -3,13 +3,18 @@
 
 from plone.registry.interfaces import IRegistry
 from zope.component import getUtility
-from collective.gspreadsyncmanager.controlpanel import IGSheetsControlPanel
+from collective.gspreadsyncmanager.controlpanel.controlpanel import IGSheetsControlPanel
 from datetime import datetime, timedelta
+
 import plone.api
 import transaction
+
 from zope.component import getUtility
 from plone.i18n.normalizer.interfaces import IIDNormalizer
 from plone.i18n.normalizer import idnormalizer
+
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 #
 # Common definitions
@@ -36,18 +41,15 @@ def reverse_onsale_value(organization_ids):
 def get_api_settings():
     registry = getUtility(IRegistry)
     settings = registry.forInterface(IGSheetsControlPanel)
-    
+        
     api_settings = {
-        'test': {
-            'url': getattr(settings, 'api_url_test', None),
-            'api_key': getattr(settings, 'api_key_test', None)
-        },
-        'prod': {
-            'url': getattr(settings, 'api_url_prod', None),
-            'api_key': getattr(settings, 'api_key_prod', None)
-        },
-        'api_mode': getattr(settings, 'api_prod_mode', None)
-    }
+        'scope': getattr(settings, 'api_scope', None),
+        'json_key': getattr(settings, 'api_json_key', None),
+        'spreadsheet_url': getattr(settings, 'api_spreadsheet_url', None),
+        'worksheet_name': getattr(settings, 'api_worksheet_name', None),
+    }   
+
+    api_settings['scope'] = api_settings['scope'].split(',')
 
     return api_settings
 

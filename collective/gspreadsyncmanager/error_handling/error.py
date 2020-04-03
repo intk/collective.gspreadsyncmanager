@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
-from .logging import logger
+from collective.gspreadsyncmanager.logging.logging import logger
 
 class Error(Exception):
     """Base exception."""

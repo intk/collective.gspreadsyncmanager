@@ -8,38 +8,23 @@ from zope.interface import Interface
 
 class IGSheetsControlPanel(Interface):
 
-    api_key_test = schema.TextLine(
-        title=u'API key (test)',
+    api_scope = schema.TextLine(
+        title=u'API scopes (separated by comma)',
         required=False
     )
 
-    api_url_test =  schema.TextLine(
-        title=u'API url (test)',
+    api_json_key =  schema.Text(
+        title=u'API key (JSON)',
         required=False
     )
 
-    api_key_prod = schema.TextLine(
-        title=u'API key (production)',
+    api_spreadsheet_url = schema.TextLine(
+        title=u'Spreadsheet url',
         required=False
     )
 
-    api_url_prod =  schema.TextLine(
-        title=u'API url (production)',
-        required=False
-    )
-
-    api_availability_endpoint = schema.TextLine(
-        title=u'Organization availability endpoint',
-        required=False
-    )
-
-    api_list_endpoint = schema.TextLine(
-        title=u'Organization list endpoint',
-        required=False
-    )
-
-    api_prod_mode = schema.TextLine(
-        title=u'Select the API mode (test or prod)',
+    api_worksheet_name =  schema.TextLine(
+        title=u'Spreadsheet worksheet name',
         required=False
     )
 
@@ -50,4 +35,6 @@ class OrganizationControlPanelForm(RegistryEditForm):
 
 class OrganizationControlPanelView(ControlPanelFormWrapper):
     form = OrganizationControlPanelForm
+
+
 
