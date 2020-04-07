@@ -1,4 +1,4 @@
 <?xml version="1.0"?>
 <registry>
-	<records interface="collective.gspreadsyncmanager.controlpanel.IGSheetsControlPanel"/>
+	<records interface="collective.gspreadsyncmanager.controlpanel.controlpanel.IGSheetsControlPanel"/>
 </registry>

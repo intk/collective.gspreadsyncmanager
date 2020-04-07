@@ -6,29 +6,29 @@
 
     <browser:page
         name="sync_organization"
-        for="collective.behavior.organization.behavior.IOrganization"
+        for="*"
         class=".views.SyncOrganization"
         permission="cmf.ManagePortal"
   	/>
 
     <browser:page
+        name="sync_person"
+        for="*"
+        class=".views.SyncPerson"
+        permission="cmf.ManagePortal"
+    />
+
+    <!--<browser:page
         name="sync_all_organizations"
         for="Products.CMFPlone.interfaces.IPloneSiteRoot"
         class=".views.SyncOrganizationsList"
         permission="cmf.ManagePortal"
-    />
-
-    <browser:page
-        name="sync_availability"
-        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
-        class=".views.SyncOrganizationsAvailability"
-        permission="cmf.ManagePortal"
-    />
+    />-->
 
   	<browser:page
 	    name="gsheetsapi-controlpanel"
 	    for="Products.CMFPlone.interfaces.IPloneSiteRoot"
-	    class="..controlpanel.OrganizationControlPanelView"
+	    class="..controlpanel.controlpanel.GsheetsPanelView"
 	    permission="cmf.ManagePortal"
 	/>
 

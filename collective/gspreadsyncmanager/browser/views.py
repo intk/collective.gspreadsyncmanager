@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from Products.Five import BrowserView
-from collective.gspreadsyncmanager.api_modules.gsheets.gsheets_api_connection import APIConnection
+from collective.gspreadsyncmanager.api_modules.gsheets.persons.gsheets_api_connection import APIConnection as APIConnectionPersons
+from collective.gspreadsyncmanager.api_modules.gsheets.organizations.gsheets_api_connection import APIConnection as APIConnectionOrganizatios
 
-from collective.gspreadsyncmanager.sync_manager import SyncManager
+from collective.gspreadsyncmanager.sync_manager_persons import SyncManager
 from collective.gspreadsyncmanager.mapping_cores.gsheets.mapping_core import CORE as SYNC_CORE
 
 # Plone imports
@@ -15,10 +16,10 @@ from zope.component import getUtility
 #
 # Product dependencies
 #
-from collective.gspreadsyncmanager.utils import get_api_settings, get_api_settings_persons, get_datetime_today, get_datetime_future
-from collective.gspreadsyncmanager.error import raise_error
-from collective.gspreadsyncmanager.logging import logger
-import plone.apixxxw
+from collective.gspreadsyncmanager.utils import get_api_settings, get_api_settings_persons, get_datetime_today, get_datetime_future, clean_whitespaces, phonenumber_to_id
+from collective.gspreadsyncmanager.error_handling.error import raise_error
+from collective.gspreadsyncmanager.logging.logging import logger
+import plone.api
 
 # Google Spreadsheets connection
 import gspread
@@ -35,11 +36,13 @@ def test_get_person_by_id():
         api_settings = get_api_settings_persons()
         
         # Create the API connection
-        api_connection = APIConnection(api_settings)
+        api_connection = APIConnectionPersons(api_settings)
 
         logger("[Status] Start sync person by id.")
 
-        organization_id = "+31642756041"
+        person_id_raw = "+316 4275 6041"
+
+        person_id = phonenumber_to_id(person_id_raw)
 
         person = api_connection.get_person_by_id(person_id=person_id)
         print(person)
@@ -49,14 +52,13 @@ def test_get_person_by_id():
 
 
 # ORGANIZATIONS
-
 def test_get_organization_by_id():
     with plone.api.env.adopt_user(username="admin"):
         # Get API settings from the controlpanel
         api_settings = get_api_settings()
         
         # Create the API connection
-        api_connection = APIConnection(api_settings)
+        api_connection = APIConnectionOrganizatios(api_settings)
 
         logger("[Status] Start sync organization by id.")
 
@@ -67,6 +69,53 @@ def test_get_organization_by_id():
 
         logger("[Status] Finished sync organization by id.")
         return organization
+
+#
+# Sync Person
+#
+
+class SyncPerson(BrowserView):
+
+    def __call__(self):
+        return self.sync()
+
+    def sync(self):
+
+        # Get the necessary information to call the api and return a response
+        context_person_id_raw = getattr(self.context, 'phone', '')
+        context_person_id = phonenumber_to_id(context_person_id_raw)
+
+        redirect_url = self.context.absolute_url()
+        messages = IStatusMessage(self.request)
+
+        if context_person_id:
+            try:
+                # Get API settings from the controlpanel
+                api_settings = get_api_settings_persons()
+
+                # Create the API connection
+                api_connection = APIConnectionPersons(api_settings)
+
+                # Create the settings for the sync
+                # Initiate the sync manager
+                sync_options = {"api": api_connection, 'core': SYNC_CORE}
+                sync_manager = SyncManager(sync_options)
+                
+                # Trigger the sync to update one organization
+                logger("[Status] Start update of single person.")
+                person_data = sync_manager.update_person_by_id(person_id=context_person_id)
+                logger("[Status] Finished update of single person.")
+                messages.add(u"Person ID '%s' is now synced." %(context_person_id), type=u"info")
+            except Exception as err:
+                logger("[Error] Error while requesting the sync for the person ID: '%s'" %(context_person_id), err)
+                messages.add(u"Person ID '%s' failed to sync with the api. Please contact the website administrator." %(context_person_id), type=u"error")
+        else:
+            messages.add(u"This person cannot be synced with the API. Organization ID is missing.", type=u"error")
+            logger("[Error] Error while requesting the sync for the person. Organization ID is not available.", "Organization ID not found.")
+        
+        # Redirect to the original page
+        raise Redirect(redirect_url)
+
 
 #
 # Sync Organization
@@ -89,7 +138,7 @@ class SyncOrganization(BrowserView):
                 api_settings = get_api_settings()
 
                 # Create the API connection
-                api_connection = APIConnection(api_settings)
+                api_connection = APIConnectionOrganizatios(api_settings)
 
                 # Create the settings for the sync
                 # Initiate the sync manager

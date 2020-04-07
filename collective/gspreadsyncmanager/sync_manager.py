@@ -12,13 +12,13 @@ from zope.schema.interfaces import ITextLine, ITuple, IBool
 from plone.app.textfield.interfaces import IRichText
 from plone.app.textfield.value import RichTextValue
 from zope.schema import getFieldsInOrder
-from plone.organization.interfaces import IEventAccessor
+from plone.event.interfaces import IEventAccessor
 from datetime import datetime
 from zope.component import getUtility
 from plone.i18n.normalizer.interfaces import IIDNormalizer
 
 # Product dependencies
-from collective.behavior.organization.behavior import IOrganization
+from collective.organization.interfaces import IOrganization
 
 # Error handling
 from .error_handling.error import raise_error
@@ -35,7 +35,7 @@ class SyncManager(object):
     # Init methods 
     #  
     DEFAULT_CONTENT_TYPE = "Organization" # TODO: should come from settings
-    DEFAULT_FOLDER = "/organizatios" # TODO: should come from settings
+    DEFAULT_FOLDER = "/organizations" # TODO: should come from settings
     
 
     def __init__(self, options):

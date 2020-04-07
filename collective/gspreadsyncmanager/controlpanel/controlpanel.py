@@ -39,12 +39,12 @@ class IGSheetsControlPanel(Interface):
     )
 
 
-class OrganizationControlPanelForm(RegistryEditForm):
+class GsheetsControlPanelForm(RegistryEditForm):
     schema = IGSheetsControlPanel
     label = u'GSheets api control panel'
 
-class OrganizationControlPanelView(ControlPanelFormWrapper):
-    form = OrganizationControlPanelForm
+class GsheetsPanelView(ControlPanelFormWrapper):
+    form = GsheetsControlPanelForm
 
 
 

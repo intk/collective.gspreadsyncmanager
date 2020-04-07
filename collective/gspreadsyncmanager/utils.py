@@ -96,3 +96,18 @@ def normalize_id(value):
     new_value = idnormalizer.normalize(value, max_length=len(value))
     return new_value
 
+def clean_whitespaces(text, to_lowercase=True):
+    try:
+        if to_lowercase:
+            text = text.lower()
+
+        text = "".join(text.split())
+        return text
+    except: # TODO: Needs proper error handling
+        return text
+
+
+def phonenumber_to_id(phone_number):
+    return clean_whitespaces(phone_number)
+
+

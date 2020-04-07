@@ -21,6 +21,7 @@ except ImportError:
 
 # Product dependencies
 from collective.gspreadsyncmanager.error_handling.error import raise_error
+from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_to_id
 
 # Google spreadsheet dependencies
 import gspread
@@ -50,7 +51,7 @@ class APIConnection(object):
         self.client = self.authenticate_api()
         self.data = self.init_spreadsheet_data()
 
-    def init_spreadsheet_data():
+    def init_spreadsheet_data(self):
 
         spreadsheet = self.client.open_by_url(self.spreadsheet_url)
         worksheet = spreadsheet.worksheet(self.worksheet_name)
@@ -60,7 +61,7 @@ class APIConnection(object):
         return data
 
 
-    def get_all_person(self):
+    def get_all_persons(self):
         #
         # Request the person list from the GoogleSheets API
         #
@@ -77,7 +78,7 @@ class APIConnection(object):
             raise_error('responseHandlingError', 'Person is not found in the Spreadsheet. ID: %s' %(person_id))
 
     # Authentication
-    def authenticate_api(): #TODO: needs validation and error handling
+    def authenticate_api(self): #TODO: needs validation and error handling
         creds = ServiceAccountCredentials.from_json_keyfile_dict(self.json_key, self.scope)
         client = gspread.authorize(creds)
         return client
@@ -85,9 +86,9 @@ class APIConnection(object):
     # Transformations 
     def transform_data(self, raw_data): #TODO: needs validation and error handling
         data = {}
-        if len(raw_data) > MINIMUM_SIZE:
+        if len(raw_data) > self.MINIMUM_SIZE:
             
-            for row in raw_data[MINIMUM_SIZE:]:
+            for row in raw_data[self.MINIMUM_SIZE:]:
                 name = row[0]
                 fullname = row[14]
                 phone = row[16]
@@ -95,29 +96,19 @@ class APIConnection(object):
                 _type = row[7]
 
                 email_address = self.generate_emailaddress(name)
-                phone_number_id = self.phonenumber_to_id(phone)
+                phone_number_id = phonenumber_to_id(phone)
 
-                data[phone_number_id] = {"name": name, "fullname": fullname, "picture": picture, "phone": phone, "type": _type, "email": email_address}
+                data[phone_number_id] = {"name": name, "fullname": fullname, "picture": picture, "phone": phone, "type": _type, "email": email_address, "_id":phone_number_id}
 
         return data
 
     def generate_emailaddress(self, name):
-        name = self.clean_whitespaces(name)
+        name = clean_whitespaces(name)
         emailaddress = "%s%s" %(name, self.EMAIL_ADDRESS_DOMAIN)
-        return name
+        return emailaddress
 
-    def phonenumber_to_id(self, phone_number):
-        return self.clean_whitespaces(phone_number)
 
-    def clean_whitespaces(self, text, to_lowercase=True):
-        try:
-            if to_lowercase:
-                text = text.lower()
 
-            text = "".join(text.split())
-            return text
-        except:
-            return text
 
 
 
