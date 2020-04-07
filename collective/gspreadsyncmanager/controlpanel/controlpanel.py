@@ -19,12 +19,22 @@ class IGSheetsControlPanel(Interface):
     )
 
     api_spreadsheet_url = schema.TextLine(
-        title=u'Spreadsheet url',
+        title=u'Spreadsheet url (organizations)',
         required=False
     )
 
     api_worksheet_name =  schema.TextLine(
-        title=u'Spreadsheet worksheet name',
+        title=u'Spreadsheet worksheet name (organizations)',
+        required=False
+    )
+
+    api_persons_spreadsheet_url = schema.TextLine(
+        title=u'Spreadsheet url (persons)',
+        required=False
+    )
+
+    api_persons_worksheet_name =  schema.TextLine(
+        title=u'Spreadsheet worksheet name (persons)',
         required=False
     )
 

@@ -53,6 +53,21 @@ def get_api_settings():
 
     return api_settings
 
+def get_api_settings_persons():
+    registry = getUtility(IRegistry)
+    settings = registry.forInterface(IGSheetsControlPanel)
+        
+    api_settings = {
+        'scope': getattr(settings, 'api_scope', None),
+        'json_key': getattr(settings, 'api_json_key', None),
+        'spreadsheet_url': getattr(settings, 'api_persons_spreadsheet_url', None),
+        'worksheet_name': getattr(settings, 'api_persons_worksheet_name', None),
+    }   
+
+    api_settings['scope'] = api_settings['scope'].split(',')
+
+    return api_settings
+
 
 def get_datetime_today(as_string=False):
     ## format = YYYY-MM-DD

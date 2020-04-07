@@ -15,7 +15,7 @@ from zope.component import getUtility
 #
 # Product dependencies
 #
-from collective.gspreadsyncmanager.utils import get_api_settings, get_datetime_today, get_datetime_future
+from collective.gspreadsyncmanager.utils import get_api_settings, get_api_settings_persons, get_datetime_today, get_datetime_future
 from collective.gspreadsyncmanager.error import raise_error
 from collective.gspreadsyncmanager.logging import logger
 import plone.apixxxw
@@ -26,6 +26,29 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 
 # TESTS API
+
+
+# PERSONS
+def test_get_person_by_id():
+    with plone.api.env.adopt_user(username="admin"):
+        # Get API settings from the controlpanel
+        api_settings = get_api_settings_persons()
+        
+        # Create the API connection
+        api_connection = APIConnection(api_settings)
+
+        logger("[Status] Start sync person by id.")
+
+        organization_id = "+31642756041"
+
+        person = api_connection.get_person_by_id(person_id=person_id)
+        print(person)
+
+        logger("[Status] Finished sync person by id.")
+        return person
+
+
+# ORGANIZATIONS
 
 def test_get_organization_by_id():
     with plone.api.env.adopt_user(username="admin"):
@@ -39,11 +62,11 @@ def test_get_organization_by_id():
 
         organization_id = "5686447075"
 
-        organization = api_connection.get_organization_by_id(organization_id=)
+        organization = api_connection.get_organization_by_id(organization_id=organization_id)
         print(organization)
 
         logger("[Status] Finished sync organization by id.")
-        return organization_list
+        return organization
 
 #
 # Sync Organization
