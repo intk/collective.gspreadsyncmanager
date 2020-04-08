@@ -6,6 +6,7 @@
 #
 import plone.api
 import transaction
+import requests
 
 # Plone dependencies
 from zope.schema.interfaces import ITextLine, ITuple, IBool
@@ -16,6 +17,8 @@ from plone.event.interfaces import IEventAccessor
 from datetime import datetime
 from zope.component import getUtility
 from plone.i18n.normalizer.interfaces import IIDNormalizer
+from plone.namedfile.file import NamedBlobImage, NamedBlobFile
+from plone.app.multilingual.interfaces import ITranslationManager
 
 # Product dependencies
 from collective.person.interfaces import IPerson
@@ -27,7 +30,7 @@ from .error_handling.error import raise_error
 from .logging.logging import logger
 
 # Utils
-from .utils import str2bool, normalize_id
+from .utils import str2bool, normalize_id, phonenumber_to_id
 from .utils import get_datetime_today, get_datetime_future, DATE_FORMAT
 
 class SyncManager(object):
@@ -36,7 +39,15 @@ class SyncManager(object):
     #  
     DEFAULT_CONTENT_TYPE = "Person" # TODO: should come from settings
     DEFAULT_FOLDER = "/en/about/team" # TODO: should come from settings
-    
+    DOWNLOAD_URL_TEMPLATE = "https://drive.google.com/u/1/uc?id=%s&export=download"
+    MAIN_LANGUAGE = "en"
+    EXTRA_LANGUAGES = ["nl"]
+    TRANSLATABLE_FIELDS = ['title', 'phone', 'email', 'pictureUrl', 'image']
+
+    DEFAULT_FOLDERS = {
+        "en": "/en/about/team",
+        "nl": "/nl/over/team"
+    }
 
     def __init__(self, options):
         self.options = options
@@ -47,20 +58,27 @@ class SyncManager(object):
     # Sync operations 
     #
     def update_person_by_id(self, person_id, person_data=None):
-        person = self.find_person(person_id)
+        if person_id:
+            person = self.find_person(person_id)
 
-        if not person_data:
-            person_data = self.gsheets_api.get_person_by_id(person_id)
+            if not person_data:
+                person_data = self.gsheets_api.get_person_by_id(person_id)
 
-        updated_person = self.update_person(person_id, person, person_data)
-        return updated_person
+            updated_person = self.update_person(person_id, person, person_data)
 
+            # translate person
+            for extra_language in self.EXTRA_LANGUAGES:
+                translated_person = self.translate_person(updated_person, person_id, extra_language)
 
-    def update_person_list_by_date(self, date_from, date_until, create_and_unpublish=False):
-        person_list = self.gsheets_api.get_person_list_by_date(date_from=date_from, date_until=date_until)
+            return updated_person
+        else:
+            return None
+
+    def update_persons(self, create_and_unpublish=False):
+        person_list = self.gsheets_api.get_all_persons()
         
         if create_and_unpublish:
-            website_persons = self.get_all_persons(date_from=date_from)
+            website_persons = self.get_all_persons()
             self.sync_person_list(person_list, website_persons)
         else:
             self.update_person_list(person_list)
@@ -74,30 +92,74 @@ class SyncManager(object):
     # UPDATE
     def update_person(self, person_id, person, person_data):
         updated_person = self.update_all_fields(person, person_data)
+        
+        state = plone.api.content.get_state(obj=person)
+        if state != "published":
+            updated_person = self.publish_person(person)
+
         logger("[Status] Person with ID '%s' is now updated. URL: %s" %(person_id, person.absolute_url()))
         return updated_person
 
-    def update_person_list(self, person_list):
-        for person in person_list:
-            person_id = person.get('id', '')
-            try:
-                person_data = self.update_person_by_id(person_id)
-            except Exception as err:
-                logger("[Error] Error while requesting the sync for the person ID: %s" %(person_id), err)
-        
-        return person_list
+
+    # TRANSLATIONS
+
+    def translate_person(self, person, person_id, language="nl"):
+        translated_person = self.check_translation_exists(person, language)
+
+        if translated_person:
+            translated_person = self.update_person_translation(person, translated_person)
+            logger("[Status] '%s' translation of Person with ID '%s' is now updated. URL: %s" %(language, person_id, translated_person.absolute_url()))
+        else:
+            translated_person = self.create_person_translation(person, language)
+            logger("[Status] Person with ID '%s' is now translated to '%s'. URL: %s" %(person_id, language, translated_person.absolute_url()))
+
+        state = plone.api.content.get_state(obj=translated_person)
+        if state != "published":
+            translated_person = self.publish_person(translated_person)
+
+        translated_person = self.validate_person_data(translated_person, None)
+        return translated_person
+
+    def check_translation_exists(self, person, language):
+        has_translation = ITranslationManager(person).has_translation(language)
+        if has_translation:
+            translated_person = ITranslationManager(person).get_translation(language)
+            return translated_person
+        else:
+            return False
+
+    def update_person_translation(self, person, translated_person):
+        translated_person = self.copy_fields_to_translation(person, translated_person)
+        return translated_person
+
+    def create_person_translation(self, person, language):
+        ITranslationManager(person).add_translation(language)
+        translated_person = ITranslationManager(person).get_translation(language)
+        translated_person = self.copy_fields_to_translation(person, translated_person)
+        return translated_person
+
+    def copy_fields_to_translation(self, person, translated_person):
+
+        for fieldname in self.TRANSLATABLE_FIELDS:
+            setattr(translated_person, fieldname, getattr(person, fieldname, ''))
+
+        original_subjects = person.Subject()
+        translated_person.setSubject(original_subjects)
+
+        return translated_person
+
 
     # CREATE
-    def create_person(self, person_id):
-        person_data = self.gsheets_api.get_person_availability(person_id)
+    def create_person(self, person_id, person_data=None):
+        if not person_data:
+            person_data = self.gsheets_api.get_person_by_id(person_id)
         
         try:
-            title = person_data['title']
-            description = person_data.get('subtitle', '')
-
+            title = person_data['fullname']
             new_person_id = normalize_id(title)
+
             container = self.get_container()
-            new_person = plone.api.content.create(container=container, type=self.DEFAULT_CONTENT_TYPE, id=new_person_id, safe_id=True, title=title, description=description)
+            new_person = plone.api.content.create(container=container, type=self.DEFAULT_CONTENT_TYPE, id=new_person_id, safe_id=True, title=title)
             logger("[Status] Person with ID '%s' is now created. URL: %s" %(person_id, new_person.absolute_url()))
             updated_person = self.update_person(person_id, new_person, person_data)
         except Exception as err:
@@ -114,36 +176,52 @@ class SyncManager(object):
 
         website_data = self.build_website_data_dict(website_persons)
 
-        for person in person_list:
-            person_id = str(person.get('id', ''))
-            if person_id in website_data.keys():
-                consume_person = website_data.pop(person_id)
-                try:
-                    person_data = self.update_person_by_id(person_id)
-                except Exception as err:
-                    logger("[Error] Error while updating the person ID: %s" %(person_id), err)
+        for person in person_list.values():
+            person_id = str(person.get('_id', ''))
+
+            if person_id:
+                # Update
+                if person_id in website_data.keys():
+                    consume_person = website_data.pop(person_id)
+                    try:
+                        person_data = self.update_person_by_id(person_id, person)
+                    except Exception as err:
+                        logger("[Error] Error while updating the person ID: %s" %(person_id), err)
+                # Create
+                else:
+                    try:
+                        new_person = self.create_person(person_id, person)
+                    except Exception as err:
+                        logger("[Error] Error while creating the person ID: '%s'" %(person_id), err)
             else:
-                try:
-                    new_person = self.create_person(person_id)
-                except Exception as err:
-                    logger("[Error] Error while creating the person ID: %s" %(person_id), err)
+                # TODO: log error
+                pass
         
         if len(website_data.keys()) > 0:
             unpublished_persons = [self.unpublish_person(person_brain.getObject()) for person_brain in website_data.values()]
 
         return person_list
 
+    def update_person_list(self, person_list):
+        for person in person_list.values():
+            person_id = person.get('_id', '')
+            try:
+                person_data = self.update_person_by_id(person_id, person)
+            except Exception as err:
+                logger("[Error] Error while requesting the sync for the person ID: '%s'" %(person_id), err)
+        
+        return person_list
+
     # GET
     def get_all_persons(self):
-        results = plone.api.content.find(portal_type=self.DEFAULT_CONTENT_TYPE)
+        results = plone.api.content.find(portal_type=self.DEFAULT_CONTENT_TYPE, Language=self.MAIN_LANGUAGE)
         return results
-
-    
 
      # FIND
     def find_person(self, person_id):
         person_id = self.safe_value(person_id)
         result = plone.api.content.find(person_id=person_id)
+
         if result:
             return result[0].getObject()
         else:
@@ -160,11 +238,21 @@ class SyncManager(object):
     # PLONE WORKLFLOW - publish
     def publish_person(self, person):
         plone.api.content.transition(obj=person, to_state="published")
+        logger("[Status] Published person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "title", ""))))
+        return person
 
     # PLONE WORKLFLOW - unpublish
     def unpublish_person(self, person):
         plone.api.content.transition(obj=person, to_state="private")
-        logger("[Status] Unpublished person with ID: '%s'" %(getattr(person, 'person_id', '')))
+        person.reindexObject()
+        logger("[Status] Unpublished person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "title", ""))))
+
+        translated_person = self.check_translation_exists(person, 'nl') #TODO: needs fix for language
+        if translated_person:
+            plone.api.content.transition(obj=translated_person, to_state="private")
+            translated_person.reindexObject()
+            logger("[Status] Unpublished person translation with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "title", ""))))
+
         return person
 
     def unpublish_person_by_id(self, person_id):
@@ -181,15 +269,6 @@ class SyncManager(object):
         else:
             logger("[Error] Person data for '%s' cannot be found." %(person_brain.getURL()), "requestHandlingError")
             return None
-
-    def build_persons_data_dict(self, api_persons):
-        persons_data = {}
-        for api_person in api_persons:
-            if 'id' in api_person:
-                persons_data[self.safe_value(api_person['id'])] = api_person
-            else:
-                logger('[Error] Person ID cannot be found in the API JSON: %s' %(api_person), 'requestHandlingError')
-        return persons_data
 
     def build_website_data_dict(self, website_persons):
         website_persons_data = {}
@@ -234,6 +313,7 @@ class SyncManager(object):
                 else:
                     setattr(person, plonefield_match, self.safe_value(fieldvalue))
                     return fieldvalue
+                    
             except Exception as err:
                 logger("[Error] Exception while syncing the API field '%s'" %(fieldname), err)
                 return None
@@ -262,7 +342,7 @@ class SyncManager(object):
 
         # get all fields from schema
         for fieldname in self.CORE.values():
-            if fieldname not in ['person_id']: # TODO: required field needs to come from the settings
+            if fieldname not in ['person_id', 'pictureUrl']: # TODO: required field needs to come from the settings
                 self.clean_field(person, fieldname)
 
         return person
@@ -289,21 +369,19 @@ class SyncManager(object):
     # Special methods
     #
     def transform_special_fields(self, person, fieldname, fieldvalue):
+
         special_field_handler = self.get_special_fields_handlers(fieldname)
         if special_field_handler:
-            if fieldvalue:
-                special_field_value = special_field_handler(person, fieldname, fieldvalue)
-                return special_field_value
-            else:
-                if fieldname in ['ranks']:
-                    return RichTextValue("", 'text/html', 'text/html')
-                return fieldvalue
+            special_field_value = special_field_handler(person, fieldname, fieldvalue)
+            return special_field_value
+
         return False
 
     def get_special_fields_handlers(self, fieldname):
         SPECIAL_FIELDS_HANDLERS = {
             "title": self._transform_person_title,
-            "type": self._transform_person_type
+            "type": self._transform_person_type,
+            "picture": self._transform_person_picture
         }
 
         if fieldname in SPECIAL_FIELDS_HANDLERS:
@@ -317,10 +395,100 @@ class SyncManager(object):
 
     def _transform_person_type(self, person, fieldname, fieldvalue):
         current_subjects = person.Subject()
-        if 'team' in current_subjects:
-            subjects = ['team', fieldvalue]
+        if 'frontpage' in current_subjects:
+            subjects = ['frontpage', fieldvalue]
+            person.setSubject(subjects)
+        elif 'frontpage-collection' in current_subjects:
+            subjects = ['frontpage-collection', fieldvalue]
             person.setSubject(subjects)
         else:
             person.setSubject([fieldvalue])
             
         return [fieldvalue]
+
+    def _transform_person_picture(self, person, fieldname, fieldvalue):
+        url = fieldvalue
+
+        current_url = getattr(person, 'pictureUrl', None)
+
+        if url:
+            if not current_url:
+                image_created_url = self.add_image_to_person(url, person)
+                setattr(person, 'pictureUrl', url)
+            elif current_url != url:
+                image_created_url = self.add_image_to_person(url, person)
+                setattr(person, 'pictureUrl', url)
+            else:
+                setattr(person, 'pictureUrl', url)
+                return url
+
+            return url
+        else:
+            setattr(person, 'image', None)
+            return url
+
+    def get_drive_file_id(self, url):
+        try:
+            if "drive.google.com/open" in url:
+                file_id = url.split("id=")[1]
+            else:
+                file_id = url.split("/")[5]
+            return file_id
+        except:
+            # TODO: log error
+            return None
+
+    def generate_image_url(self, url):
+        
+        file_id = self.get_drive_file_id(url)
+
+        if file_id:
+            image_url = self.DOWNLOAD_URL_TEMPLATE %(file_id)
+            return image_url
+        else:
+            # TODO: log error
+            return None
+
+    # Utils
+    def download_image(self, url):
+        if url:
+            try:
+                img_request = requests.get(url, stream=True)
+                if img_request:
+                    if 'text/xml' in img_request.headers.get('content-type'):
+                        # TODO : Log error
+                        return None
+                    img_data = img_request.content
+                    return img_data
+                else:
+                    # TODO: log error
+                    return None
+            except:
+                # TODO: log error
+                return None
+        else:
+            return None
+
+    def get_image_blob(self, img_data):
+        if img_data:
+            image_data = img_data
+            img_blob = NamedBlobImage(data=image_data)
+
+            return img_blob
+        else:
+            return None
+
+    def add_image_to_person(self, url, person):
+        image_url = self.generate_image_url(url)
+        image_data = self.download_image(image_url)
+        image_blob = self.get_image_blob(image_data)
+
+        if image_blob:
+            setattr(person, 'image', image_blob)
+            return url
+        else:
+            return url
+
+
+
+

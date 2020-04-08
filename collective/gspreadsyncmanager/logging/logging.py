@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from datetime import datetime
-print_warnings = True
+print_warnings = False
 print_errors = True
 print_status = True
 

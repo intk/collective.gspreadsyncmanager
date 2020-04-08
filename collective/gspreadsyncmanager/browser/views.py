@@ -28,7 +28,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # TESTS API
 
-
 # PERSONS
 def test_get_person_by_id():
     with plone.api.env.adopt_user(username="admin"):
@@ -83,7 +82,8 @@ class SyncPerson(BrowserView):
 
         # Get the necessary information to call the api and return a response
         context_person_id_raw = getattr(self.context, 'phone', '')
-        context_person_id = phonenumber_to_id(context_person_id_raw)
+        context_person_title = getattr(self.context, 'title', '')
+        context_person_id = phonenumber_to_id(context_person_id_raw, context_person_title)
 
         redirect_url = self.context.absolute_url()
         messages = IStatusMessage(self.request)
@@ -117,6 +117,41 @@ class SyncPerson(BrowserView):
         raise Redirect(redirect_url)
 
 
+class SyncAllPersons(BrowserView):
+
+    def __call__(self):
+        return self.sync()
+
+    def sync(self):
+
+        redirect_url = self.context.absolute_url()
+        messages = IStatusMessage(self.request)
+        
+        try:
+            # Get API settings from the controlpanel
+            api_settings = get_api_settings_persons()
+
+            # Create the API connection
+            api_connection = APIConnectionPersons(api_settings)
+
+            # Create the settings for the sync
+            # Initiate the sync manager
+            sync_options = {"api": api_connection, 'core': SYNC_CORE}
+            sync_manager = SyncManager(sync_options)
+            
+            # Trigger the sync to update one organization
+            logger("[Status] Start update of all persons.")
+            person_data = sync_manager.update_persons(create_and_unpublish=True)
+            logger("[Status] Finished update of all persons.")
+            messages.add(u"Persons are now synced.", type=u"info")
+        except:
+            logger("[Error] Error while requesting the sync for all persons.", err)
+            messages.add(u"Sync of persons with the api failed. Please contact the website administrator.", type=u"error")
+        
+        # Redirect to the original page
+        raise Redirect(redirect_url)
+
+
 #
 # Sync Organization
 #
@@ -127,37 +162,39 @@ class SyncOrganization(BrowserView):
 
     def sync(self):
 
-        # Get the necessary information to call the api and return a response
-        context_organization_id = getattr(self.context, 'organization_id', None)
-        redirect_url = self.context.absolute_url()
-        messages = IStatusMessage(self.request)
+        with plone.api.env.adopt_user(username="admin"):
+            # Get the necessary information to call the api and return a response
+            context_organization_id = getattr(self.context, 'organization_id', None)
+            redirect_url = self.context.absolute_url()
+            messages = IStatusMessage(self.request)
 
-        if context_organization_id:
-            try:
-                # Get API settings from the controlpanel
-                api_settings = get_api_settings()
+            if context_organization_id:
+                try:
+                    # Get API settings from the controlpanel
+                    api_settings = get_api_settings()
 
-                # Create the API connection
-                api_connection = APIConnectionOrganizatios(api_settings)
+                    # Create the API connection
+                    api_connection = APIConnectionOrganizatios(api_settings)
 
-                # Create the settings for the sync
-                # Initiate the sync manager
-                sync_options = {"api": api_connection, 'core': SYNC_CORE}
-                sync_manager = SyncManager(sync_options)
-                
-                # Trigger the sync to update one organization
-                logger("[Status] Start update of single organization.")
-                organization_data = sync_manager.update_organization_by_id(organization_id=context_organization_id)
-                logger("[Status] Finished update of single organization.")
-                messages.add(u"Organization ID %s is now synced." %(context_organization_id), type=u"info")
-            except Exception as err:
-                logger("[Error] Error while requesting the sync for the organization ID: %s" %(context_organization_id), err)
-                messages.add(u"Organization ID '%s' failed to sync with the api. Please contact the website administrator." %(context_organization_id), type=u"error")
-        else:
-            messages.add(u"This organization cannot be synced with the API. Organization ID is missing.", type=u"error")
-            logger("[Error] Error while requesting the sync for the organization. Organization ID is not available.", "Organization ID not found.")
-        
-        # Redirect to the original page
-        raise Redirect(redirect_url)
+                    # Create the settings for the sync
+                    # Initiate the sync manager
+                    sync_options = {"api": api_connection, 'core': SYNC_CORE}
+                    sync_manager = SyncManager(sync_options)
+                    
+                    # Trigger the sync to update one organization
+                    logger("[Status] Start update of single organization.")
+                    
+                    organization_data = sync_manager.update_organization_by_id(organization_id=context_organization_id)
+                    logger("[Status] Finished update of single organization.")
+                    messages.add(u"Organization ID %s is now synced." %(context_organization_id), type=u"info")
+                except Exception as err:
+                    logger("[Error] Error while requesting the sync for the organization ID: %s" %(context_organization_id), err)
+                    messages.add(u"Organization ID '%s' failed to sync with the api. Please contact the website administrator." %(context_organization_id), type=u"error")
+            else:
+                messages.add(u"This organization cannot be synced with the API. Organization ID is missing.", type=u"error")
+                logger("[Error] Error while requesting the sync for the organization. Organization ID is not available.", "Organization ID not found.")
+            
+            # Redirect to the original page
+            raise Redirect(redirect_url)
 
 

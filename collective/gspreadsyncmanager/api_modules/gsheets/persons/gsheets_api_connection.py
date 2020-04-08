@@ -37,6 +37,15 @@ class APIConnection(object):
     MINIMUM_SIZE = 1
     EMAIL_ADDRESS_DOMAIN = "@intk.com"
 
+    # API mapping field / column
+    API_MAPPING = {
+        "name": 0,
+        "fullname": 14,
+        "phone": 16,
+        "picture": 17,
+        "type": 7
+    }
+
     #
     # Initialisation methods
     #
@@ -89,16 +98,18 @@ class APIConnection(object):
         if len(raw_data) > self.MINIMUM_SIZE:
             
             for row in raw_data[self.MINIMUM_SIZE:]:
-                name = row[0]
-                fullname = row[14]
-                phone = row[16]
-                picture = row[17]
-                _type = row[7]
 
-                email_address = self.generate_emailaddress(name)
-                phone_number_id = phonenumber_to_id(phone)
+                new_person = {}
+                for fieldname, sheet_position in self.API_MAPPING.items():
+                    new_person[fieldname] = row[sheet_position]
 
-                data[phone_number_id] = {"name": name, "fullname": fullname, "picture": picture, "phone": phone, "type": _type, "email": email_address, "_id":phone_number_id}
+                email_address = self.generate_emailaddress(new_person["name"])
+                phone_number_id = phonenumber_to_id(new_person["phone"], new_person["fullname"])
+
+                new_person['email'] = email_address
+                new_person['_id'] = phone_number_id
+
+                data[phone_number_id] = new_person
 
         return data
 

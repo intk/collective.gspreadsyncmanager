@@ -18,6 +18,13 @@
         permission="cmf.ManagePortal"
     />
 
+    <browser:page
+        name="sync_all_persons"
+        for="*"
+        class=".views.SyncAllPersons"
+        permission="cmf.ManagePortal"
+    />
+
     <!--<browser:page
         name="sync_all_organizations"
         for="Products.CMFPlone.interfaces.IPloneSiteRoot"
