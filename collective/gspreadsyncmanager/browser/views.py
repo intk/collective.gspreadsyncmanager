@@ -25,6 +25,10 @@ import plone.api
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+import requests
+from requests.auth import HTTPBasicAuth
+from plone.registry import Registry
+import transaction
 
 # TESTS API
 
@@ -113,9 +117,41 @@ class SyncPerson(BrowserView):
             messages.add(u"This person cannot be synced with the API. Organization ID is missing.", type=u"error")
             logger("[Error] Error while requesting the sync for the person. Organization ID is not available.", "Organization ID not found.")
         
+
         # Redirect to the original page
         raise Redirect(redirect_url)
 
+
+class SyncAllPersonsAJAX(BrowserView):
+
+    def __call__(self):
+        return self.sync()
+
+    def sync(self):
+
+        messages = IStatusMessage(self.request)
+        
+        try:
+            # Get API settings from the controlpanel
+            api_settings = get_api_settings_persons()
+            plone.api.portal.set_registry_record("sync_complete", False)
+
+            # Create the API connection
+            api_connection = APIConnectionPersons(api_settings)
+
+            # Create the settings for the sync
+            # Initiate the sync manager
+            sync_options = {"api": api_connection, 'core': SYNC_CORE}
+            sync_manager = SyncManager(sync_options)
+            
+            # Trigger the sync to update one organization
+            logger("[Status] Start update of all persons.")
+            person_data = sync_manager.update_persons(create_and_unpublish=True)
+            logger("[Status] Finished update of all persons.")
+        except:
+            logger("[Error] Error while requesting the sync for all persons.", err)
+        
+        return True
 
 class SyncAllPersons(BrowserView):
 
@@ -150,6 +186,28 @@ class SyncAllPersons(BrowserView):
         
         # Redirect to the original page
         raise Redirect(redirect_url)
+
+
+
+class RequestSyncAllPersons(BrowserView):
+
+    def __call__(self):
+        return self.sync()
+
+    def sync(self):
+        view_name = "@@sync_all_persons_ajax"
+        current_url = self.context.absolute_url()
+        if current_url:
+            if current_url[len(current_url)-1] != "/":
+                current_url = current_url + "/"
+
+            request_url = "%s%s" %(current_url, view_name)
+            
+            res = requests.get(request_url, auth=HTTPBasicAuth('##', '##'))
+            res.connection.close()
+            return True
+        else:
+            return False
 
 
 #

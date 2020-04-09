@@ -7,6 +7,9 @@
 import plone.api
 import transaction
 import requests
+from zope.component import queryAdapter, queryMultiAdapter
+from plone.uuid.interfaces import IUUID
+from zope import event
 
 # Plone dependencies
 from zope.schema.interfaces import ITextLine, ITuple, IBool
@@ -22,6 +25,7 @@ from plone.app.multilingual.interfaces import ITranslationManager
 
 # Product dependencies
 from collective.person.interfaces import IPerson
+from eea.cache.event import InvalidateMemCacheEvent
 
 # Error handling
 from .error_handling.error import raise_error
@@ -70,6 +74,9 @@ class SyncManager(object):
             for extra_language in self.EXTRA_LANGUAGES:
                 translated_person = self.translate_person(updated_person, person_id, extra_language)
 
+            if not person_data:
+                cache_invalidated = self.invalidate_cache()
+
             return updated_person
         else:
             return None
@@ -82,6 +89,8 @@ class SyncManager(object):
             self.sync_person_list(person_list, website_persons)
         else:
             self.update_person_list(person_list)
+
+        cache_invalidated = self.invalidate_cache()
         
         return person_list
 
@@ -92,7 +101,7 @@ class SyncManager(object):
     # UPDATE
     def update_person(self, person_id, person, person_data):
         updated_person = self.update_all_fields(person, person_data)
-        
+
         state = plone.api.content.get_state(obj=person)
         if state != "published":
             updated_person = self.publish_person(person)
@@ -220,7 +229,7 @@ class SyncManager(object):
      # FIND
     def find_person(self, person_id):
         person_id = self.safe_value(person_id)
-        result = plone.api.content.find(person_id=person_id)
+        result = plone.api.content.find(person_id=person_id, Language=self.MAIN_LANGUAGE)
 
         if result:
             return result[0].getObject()
@@ -488,6 +497,14 @@ class SyncManager(object):
             return url
         else:
             return url
+
+    def invalidate_cache(self):
+        """container = self.get_container()
+        uid = queryAdapter(container, IUUID)
+        if uid:
+            event.notify(InvalidateMemCacheEvent(raw=True, dependencies=[uid]))"""
+        return True
+
 
 
 

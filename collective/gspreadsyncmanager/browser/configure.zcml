@@ -25,12 +25,19 @@
         permission="cmf.ManagePortal"
     />
 
-    <!--<browser:page
-        name="sync_all_organizations"
-        for="Products.CMFPlone.interfaces.IPloneSiteRoot"
-        class=".views.SyncOrganizationsList"
+    <browser:page
+        name="sync_all_persons_ajax"
+        for="*"
+        class=".views.SyncAllPersonsAJAX"
         permission="cmf.ManagePortal"
-    />-->
+    />
+
+    <browser:page
+        name="request_sync_all_persons"
+        for="*"
+        class=".views.RequestSyncAllPersons"
+        permission="zope2.View"
+    />
 
   	<browser:page
 	    name="gsheetsapi-controlpanel"
