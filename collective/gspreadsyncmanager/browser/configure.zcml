@@ -5,16 +5,16 @@
     i18n_domain="collective.gspreadsyncmanager">
 
     <browser:page
-        name="sync_organization"
-        for="*"
-        class=".views.SyncOrganization"
-        permission="cmf.ManagePortal"
-  	/>
-
-    <browser:page
         name="sync_person"
         for="*"
         class=".views.SyncPerson"
+        permission="cmf.ManagePortal"
+    />
+
+    <browser:page
+        name="sync_organization"
+        for="*"
+        class=".views.SyncOrganization"
         permission="cmf.ManagePortal"
     />
 

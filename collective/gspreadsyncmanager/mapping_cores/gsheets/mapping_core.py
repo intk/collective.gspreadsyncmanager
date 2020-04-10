@@ -11,3 +11,14 @@ CORE = {
 	"type":"subjects",
 	"name": "",
 }
+
+CORE_ORGANIZATIONS = {
+	"name": "title",
+	"google_ads_id": "google_ads_id",
+	"type":"subjects",
+	"picture": "pictureUrl",
+	"_id":""
+}
+
+
+

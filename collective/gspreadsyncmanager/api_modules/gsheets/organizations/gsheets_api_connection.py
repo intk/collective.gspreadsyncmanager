@@ -21,6 +21,7 @@ except ImportError:
 
 # Product dependencies
 from collective.gspreadsyncmanager.error_handling.error import raise_error
+from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_to_id
 
 # Google spreadsheet dependencies
 import gspread
@@ -34,6 +35,16 @@ class APIConnection(object):
     #
 
     MINIMUM_SIZE = 1
+    EMAIL_ADDRESS_DOMAIN = "@intk.com"
+
+    # API mapping field / column
+    API_MAPPING = {
+        "name": 0,
+        "google_ads_id": 1,
+        "type": 16,
+        "picture": 4,
+        "type": 7
+    }
 
     #
     # Initialisation methods
@@ -49,7 +60,7 @@ class APIConnection(object):
         self.client = self.authenticate_api()
         self.data = self.init_spreadsheet_data()
 
-    def init_spreadsheet_data():
+    def init_spreadsheet_data(self):
 
         spreadsheet = self.client.open_by_url(self.spreadsheet_url)
         worksheet = spreadsheet.worksheet(self.worksheet_name)
@@ -59,7 +70,7 @@ class APIConnection(object):
         return data
 
 
-    def get_all_organization(self):
+    def get_all_organizations(self):
         #
         # Request the organization list from the GoogleSheets API
         #
@@ -70,14 +81,13 @@ class APIConnection(object):
         # Gets an organization by ID 
         # 
 
-        if organization_id in self.data:
+        if organization_id in self.data.keys():
             return self.data[organization_id]
         else:
             raise_error('responseHandlingError', 'Organization is not found in the Spreadsheet. ID: %s' %(organization_id))
 
     # Authentication
-    def authenticate_api(): #TODO: needs validation and error handling
-
+    def authenticate_api(self): #TODO: needs validation and error handling
         creds = ServiceAccountCredentials.from_json_keyfile_dict(self.json_key, self.scope)
         client = gspread.authorize(creds)
         return client
@@ -85,17 +95,24 @@ class APIConnection(object):
     # Transformations 
     def transform_data(self, raw_data): #TODO: needs validation and error handling
         data = {}
-        if len(raw_data) > MINIMUM_SIZE:
+        if len(raw_data) > self.MINIMUM_SIZE:
             
-            for row in raw_data[MINIMUM_SIZE:]:
-                google_ads_id = row[1]
-                name = row[0]
-                selfie = row[4]
-                _type = row[7]
+            for row in raw_data[self.MINIMUM_SIZE:]:
 
-                data[google_ads_id] = {"name": name, "selfie": selfie, "type": _type}
+                new_organization = {}
+                for fieldname, sheet_position in self.API_MAPPING.items():
+                    new_organization[fieldname] = row[sheet_position]
+
+                google_ads_id = new_organization['google_ads_id']
+                new_organization["_id"] = google_ads_id
+                data[google_ads_id] = new_organization
 
         return data
+
+
+
+
+
 
     
 

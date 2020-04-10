@@ -27,6 +27,8 @@ from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_t
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
+from httplib2 import Http
+
 
 class APIConnection(object):
 
@@ -58,7 +60,10 @@ class APIConnection(object):
         self.scope = api_settings['scope']
 
         self.client = self.authenticate_api()
+        #self.drive = self.authenticate_drive_api()
+
         self.data = self.init_spreadsheet_data()
+        #self.drive_data = self.get_drive_data()
 
     def init_spreadsheet_data(self):
 
@@ -87,10 +92,20 @@ class APIConnection(object):
             raise_error('responseHandlingError', 'Person is not found in the Spreadsheet. ID: %s' %(person_id))
 
     # Authentication
+    """def authenticate_drive_api(self): #TODO: needs validation and error handling
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(self.json_key, self.scope)
+        http = creds.authorize(Http())
+        drive = discovery.build('drive', 'v3', http=http)
+        return drive"""
+
     def authenticate_api(self): #TODO: needs validation and error handling
         creds = ServiceAccountCredentials.from_json_keyfile_dict(self.json_key, self.scope)
         client = gspread.authorize(creds)
         return client
+
+    """def get_drive_data(self):
+        data = drive.files().get(fileId="1yNy_9s_nJfnPh8hyb5c3rVApdLhE8k4sGqLPNvKmkQk", fields="name,modifiedTime")
+        return data"""
 
     # Transformations 
     def transform_data(self, raw_data): #TODO: needs validation and error handling
@@ -104,7 +119,7 @@ class APIConnection(object):
                     new_person[fieldname] = row[sheet_position]
 
                 email_address = self.generate_emailaddress(new_person["name"])
-                phone_number_id = phonenumber_to_id(new_person["phone"], new_person["fullname"])
+                phone_number_id = phonenumber_to_id(new_person["phone"], email_address)
 
                 new_person['email'] = email_address
                 new_person['_id'] = phone_number_id

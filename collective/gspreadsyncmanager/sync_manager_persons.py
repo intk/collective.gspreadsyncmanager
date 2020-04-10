@@ -77,6 +77,7 @@ class SyncManager(object):
             if not person_data:
                 cache_invalidated = self.invalidate_cache()
 
+            updated_person = self.validate_person_data(updated_person, person_data)
             return updated_person
         else:
             return None
@@ -106,6 +107,7 @@ class SyncManager(object):
         if state != "published":
             updated_person = self.publish_person(person)
 
+
         logger("[Status] Person with ID '%s' is now updated. URL: %s" %(person_id, person.absolute_url()))
         return updated_person
 
@@ -127,6 +129,7 @@ class SyncManager(object):
             translated_person = self.publish_person(translated_person)
 
         translated_person = self.validate_person_data(translated_person, None)
+
         return translated_person
 
     def check_translation_exists(self, person, language):
@@ -247,20 +250,18 @@ class SyncManager(object):
     # PLONE WORKLFLOW - publish
     def publish_person(self, person):
         plone.api.content.transition(obj=person, to_state="published")
-        logger("[Status] Published person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "title", ""))))
+        logger("[Status] Published person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
         return person
 
     # PLONE WORKLFLOW - unpublish
     def unpublish_person(self, person):
         plone.api.content.transition(obj=person, to_state="private")
-        person.reindexObject()
-        logger("[Status] Unpublished person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "title", ""))))
+        logger("[Status] Unpublished person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
 
         translated_person = self.check_translation_exists(person, 'nl') #TODO: needs fix for language
         if translated_person:
             plone.api.content.transition(obj=translated_person, to_state="private")
-            translated_person.reindexObject()
-            logger("[Status] Unpublished person translation with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "title", ""))))
+            logger("[Status] Unpublished person translation with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
 
         return person
 
@@ -332,7 +333,6 @@ class SyncManager(object):
     def update_all_fields(self, person, person_data):
         self.clean_all_fields(person)
         updated_fields = [(self.update_field(person, field, person_data[field]), field) for field in person_data.keys()]
-        person = self.validate_person_data(person, person_data)
         return person
 
     #

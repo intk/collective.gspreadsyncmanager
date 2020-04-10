@@ -109,7 +109,7 @@ def clean_whitespaces(text, to_lowercase=True):
 
 def phonenumber_to_id(phone_number, name=""):
     if name:
-        name = clean_whitespaces(name.split()[0])
+        name = clean_whitespaces(name.split("@")[0])
         
     unique_id = "%s%s" %(name, phone_number)
     return clean_whitespaces(unique_id)
