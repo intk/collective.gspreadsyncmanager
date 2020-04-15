@@ -70,14 +70,9 @@ class SyncManager(object):
 
             updated_person = self.update_person(person_id, person, person_data)
 
-            # translate person
-            for extra_language in self.EXTRA_LANGUAGES:
-                translated_person = self.translate_person(updated_person, person_id, extra_language)
-
             if not person_data:
                 cache_invalidated = self.invalidate_cache()
 
-            updated_person = self.validate_person_data(updated_person, person_data)
             return updated_person
         else:
             return None
@@ -100,13 +95,18 @@ class SyncManager(object):
     #
 
     # UPDATE
+    
+
     def update_person(self, person_id, person, person_data):
         updated_person = self.update_all_fields(person, person_data)
 
-        state = plone.api.content.get_state(obj=person)
-        if state != "published":
-            updated_person = self.publish_person(person)
+        update_person = self.publish_based_on_current_state(person)
 
+        # translate person
+        for extra_language in self.EXTRA_LANGUAGES:
+            translated_person = self.translate_person(updated_person, person_id, extra_language)
+
+        updated_person = self.validate_person_data(updated_person, person_data)
 
         logger("[Status] Person with ID '%s' is now updated. URL: %s" %(person_id, person.absolute_url()))
         return updated_person
@@ -124,10 +124,7 @@ class SyncManager(object):
             translated_person = self.create_person_translation(person, language)
             logger("[Status] Person with ID '%s' is now translated to '%s'. URL: %s" %(person_id, language, translated_person.absolute_url()))
 
-        state = plone.api.content.get_state(obj=translated_person)
-        if state != "published":
-            translated_person = self.publish_person(translated_person)
-
+        translated_person = self.publish_based_on_current_state(translated_person)
         translated_person = self.validate_person_data(translated_person, None)
 
         return translated_person
@@ -248,6 +245,17 @@ class SyncManager(object):
         plone.api.content.delete(obj=person)
 
     # PLONE WORKLFLOW - publish
+    def publish_based_on_current_state(self, person):
+        state = plone.api.content.get_state(obj=person)
+        if state != "published":
+            if getattr(person, 'image', None):
+                updated_person = self.publish_person(person)
+        else:
+            if not getattr(person, 'image', None):
+                updated_person = self.unpublish_person(person)
+
+        return person
+
     def publish_person(self, person):
         plone.api.content.transition(obj=person, to_state="published")
         logger("[Status] Published person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
@@ -464,7 +472,9 @@ class SyncManager(object):
             try:
                 img_request = requests.get(url, stream=True)
                 if img_request:
-                    if 'text/xml' in img_request.headers.get('content-type'):
+                    img_headers = img_request.headers.get('content-type')
+
+                    if 'text/xml' in img_headers or "text/html" in img_headers:
                         # TODO : Log error
                         return None
                     img_data = img_request.content
@@ -496,6 +506,7 @@ class SyncManager(object):
             setattr(person, 'image', image_blob)
             return url
         else:
+            setattr(person, 'image', None)
             return url
 
     def invalidate_cache(self):
