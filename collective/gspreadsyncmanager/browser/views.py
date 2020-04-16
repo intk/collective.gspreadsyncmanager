@@ -247,10 +247,9 @@ class SyncOrganization(BrowserView):
                 person_data = sync_manager.update_organization_by_id(organization_id=context_organization_id)
                 logger("[Status] Finished update of single organization.")
                 messages.add(u"Organization ID '%s' is now synced." %(context_organization_id), type=u"info")
-            except:
-                #logger("[Error] Error while requesting the sync for the organization ID: '%s'" %(context_organization_id), err)
-                #messages.add(u"Organization ID '%s' failed to sync with the api. Please contact the website administrator." %(context_organization_id), type=u"error")
-                raise
+            except Exception as err:
+                logger("[Error] Error while requesting the sync for the organization ID: '%s'" %(context_organization_id), err)
+                messages.add(u"Organization ID '%s' failed to sync with the api. Please contact the website administrator." %(context_organization_id), type=u"error")
         else:
             messages.add(u"This organization cannot be synced with the API. Organization ID is missing.", type=u"error")
             logger("[Error] Error while requesting the sync for the organization. Organization ID is not available.", "Organization ID not found.")
@@ -258,5 +257,39 @@ class SyncOrganization(BrowserView):
 
         # Redirect to the original page
         raise Redirect(redirect_url)
+
+class SyncAllOrganizations(BrowserView):
+
+    def __call__(self):
+        return self.sync()
+
+    def sync(self):
+
+        redirect_url = self.context.absolute_url()
+        messages = IStatusMessage(self.request)
+
+        try:
+            # Get API settings from the controlpanel
+            api_settings = get_api_settings()
+
+            # Create the API connection
+            api_connection = APIConnectionOrganizations(api_settings)
+
+            # Create the settings for the sync
+            # Initiate the sync manager
+            sync_options = {"api": api_connection, 'core': SYNC_CORE_ORGANIZATIONS}
+            sync_manager = SyncManagerOrganizations(sync_options)
+            
+            # Trigger the sync to update one organization
+            logger("[Status] Start update of all organization.")
+            person_data = sync_manager.update_organizations(create_and_unpublish=True)
+            logger("[Status] Finished update of all organization.")
+        except Exception as err:
+            logger("[Error] Error while requesting the sync for all organizations", err)
+            messages.add(u"Sync of all organizations ID failed. Please contact the website administrator.", type=u"error")
+
+        # Redirect to the original page
+        raise Redirect(redirect_url)
+
 
 

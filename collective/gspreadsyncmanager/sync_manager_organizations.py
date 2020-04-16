@@ -48,7 +48,7 @@ class SyncManager(object):
     DOWNLOAD_URL_TEMPLATE = "https://drive.google.com/u/1/uc?id=%s&export=download"
     MAIN_LANGUAGE = "en"
     EXTRA_LANGUAGES = ["nl"]
-    TRANSLATABLE_FIELDS = ['title', 'google_ads_id', 'pictureUrl', 'image']
+    TRANSLATABLE_FIELDS = ['title', 'google_ads_id', 'pictureUrl', 'image', 'taxonomy_cultural_organizations']
 
     DEFAULT_FOLDER = "/en/organizations" # TODO: should come from settings
     DEFAULT_FOLDERS = {
@@ -58,6 +58,7 @@ class SyncManager(object):
 
     TAXONOMY_NAME = "taxonomy_cultural_organizations" # TODO: should come from settings
 
+
     def __init__(self, options):
         self.options = options
         self.gsheets_api = self.options['api']
@@ -66,16 +67,10 @@ class SyncManager(object):
         self.taxonomy_utility = queryUtility(ITaxonomy, name='collective.taxonomy.cultural_organizations')
         self.taxonomy_data = self.taxonomy_utility.data
 
-
     #
     # Sync operations 
     #
-    def update_organization_by_id(self, organization_id, organization_data=None, translate=False):
-        all_organizations = plone.api.content.find(portal_type="Organization", Language="en")
-        for org in all_organizations:
-            obj = org.getObject()
-            obj.reindexObject()
-        transaction.get().commit()
+    def update_organization_by_id(self, organization_id, organization_data=None, translate=True):
 
         if organization_id:
             organization = self.find_organization(organization_id)
@@ -84,10 +79,6 @@ class SyncManager(object):
                 organization_data = self.gsheets_api.get_organization_by_id(organization_id)
 
             updated_organization = self.update_organization(organization_id, organization, organization_data)
-
-            if translate:
-                for extra_language in self.EXTRA_LANGUAGES:
-                    translated_organization = self.translate_organization(updated_organization, organization_id, extra_language)
 
             if not organization_data:
                 cache_invalidated = self.invalidate_cache()
@@ -114,12 +105,16 @@ class SyncManager(object):
     #
 
     # UPDATE
-    def update_organization(self, organization_id, organization, organization_data):
+    def update_organization(self, organization_id, organization, organization_data, translate=True):
         updated_organization = self.update_all_fields(organization, organization_data)
 
-        state = plone.api.content.get_state(obj=organization)
-        if state != "published":
-            updated_organization = self.publish_organization(organization)
+        updated_organization = self.publish_based_on_current_state(organization)
+
+        if translate:
+            for extra_language in self.EXTRA_LANGUAGES:
+                translated_organization = self.translate_organization(updated_organization, organization_id, extra_language)
+
+        organization = self.validate_organization_data(organization, organization_data)
 
         logger("[Status] Organization with ID '%s' is now updated. URL: %s" %(organization_id, organization.absolute_url()))
         return updated_organization
@@ -137,11 +132,9 @@ class SyncManager(object):
             translated_organization = self.create_organization_translation(organization, language)
             logger("[Status] Organization with ID '%s' is now translated to '%s'. URL: %s" %(organization_id, language, translated_organization.absolute_url()))
 
-        state = plone.api.content.get_state(obj=translated_organization)
-        if state != "published":
-            translated_organization = self.publish_organization(translated_organization)
-
+        translated_organization = self.publish_based_on_current_state(translated_organization)
         translated_organization = self.validate_organization_data(translated_organization, None)
+        
         return translated_organization
 
     def check_translation_exists(self, organization, language):
@@ -179,7 +172,7 @@ class SyncManager(object):
             organization_data = self.gsheets_api.get_organization_by_id(organization_id)
         
         try:
-            title = organization_data['fullname']
+            title = organization_data['name']
             new_organization_id = normalize_id(title)
 
             container = self.get_container()
@@ -260,22 +253,31 @@ class SyncManager(object):
         plone.api.content.delete(obj=organization)
 
     # PLONE WORKLFLOW - publish
+    def publish_based_on_current_state(self, organization):
+        state = plone.api.content.get_state(obj=organization)
+        if state != "published":
+            if getattr(organization, 'image', None):
+                updated_organization = self.publish_organization(organization)
+        else:
+            if not getattr(organization, 'image', None):
+                updated_organization = self.unpublish_organization(organization)
+
+        return organization
+
     def publish_organization(self, organization):
         plone.api.content.transition(obj=organization, to_state="published")
-        logger("[Status] Published organization with ID: '%s'" %(phonenumber_to_id(getattr(organization, 'phone', ''), getattr(organization, "title", ""))))
+        logger("[Status] Published organization with ID: '%s'" %(getattr(organization, 'google_ads_id', '')))
         return organization
 
     # PLONE WORKLFLOW - unpublish
     def unpublish_organization(self, organization):
         plone.api.content.transition(obj=organization, to_state="private")
-        organization.reindexObject()
-        logger("[Status] Unpublished organization with ID: '%s'" %(phonenumber_to_id(getattr(organization, 'phone', ''), getattr(organization, "title", ""))))
+        logger("[Status] Unpublished organization with ID: '%s'" %(getattr(organization, 'google_ads_id', '')))
 
         translated_organization = self.check_translation_exists(organization, 'nl') #TODO: needs fix for language
         if translated_organization:
             plone.api.content.transition(obj=translated_organization, to_state="private")
-            translated_organization.reindexObject()
-            logger("[Status] Unpublished organization translation with ID: '%s'" %(phonenumber_to_id(getattr(organization, 'phone', ''), getattr(organization, "title", ""))))
+            logger("[Status] Unpublished organization translation with ID: '%s'" %(getattr(organization, 'google_ads_id', '')))
 
         return organization
 
@@ -301,7 +303,7 @@ class SyncManager(object):
             if organization_id:
                 website_organizations_data[self.safe_value(organization_id)] = website_organization
             else:
-                logger('[Error] Organization ID value cannot be found in the brain url: %s' %(website_organization.getURL()), 'requestHandlingError')
+                logger('[Error] Organization ID value cannot be found in the brain. URL: %s' %(website_organization.getURL()), 'requestHandlingError')
         return website_organizations_data
 
     def get_container(self):
@@ -347,7 +349,6 @@ class SyncManager(object):
     def update_all_fields(self, organization, organization_data):
         self.clean_all_fields(organization)
         updated_fields = [(self.update_field(organization, field, organization_data[field]), field) for field in organization_data.keys()]
-        organization = self.validate_organization_data(organization, organization_data)
         return organization
 
     #
@@ -366,7 +367,7 @@ class SyncManager(object):
 
         # get all fields from schema
         for fieldname in self.CORE.values():
-            if fieldname not in ['organization_id', 'pictureUrl']: # TODO: required field needs to come from the settings
+            if fieldname not in ['organization_id', 'pictureUrl', 'google_ads_id']: # TODO: required field needs to come from the settings
                 self.clean_field(organization, fieldname)
 
         return organization
@@ -431,6 +432,9 @@ class SyncManager(object):
         taxonomy_id = self.get_taxonomy_id(fieldvalue)
         taxonomies = getattr(organization, self.TAXONOMY_NAME, [])
 
+        if not taxonomies:
+            taxonomies = []
+
         if taxonomy_id not in taxonomies:
             taxonomies.append(taxonomy_id)
             setattr(organization, self.TAXONOMY_NAME, taxonomies)
@@ -439,10 +443,12 @@ class SyncManager(object):
 
     def get_taxonomy_id(self, taxonomy):
         taxonomy_id = None
+        
         for taxonomy_name in self.taxonomy_data[self.MAIN_LANGUAGE]:
             if taxonomy in taxonomy_name:
                 taxonomy_id = self.taxonomy_data[self.MAIN_LANGUAGE][taxonomy_name]
                 return taxonomy_id
+
         return taxonomy_id
 
 
@@ -471,8 +477,12 @@ class SyncManager(object):
         try:
             if "drive.google.com/open" in url:
                 file_id = url.split("id=")[1]
+                file_id = file_id.split('&')[0]
+                file_id = file_id.split('?')[0]
             else:
                 file_id = url.split("/")[5]
+                file_id = file_id.split('&')[0]
+                file_id = file_id.split('?')[0]
             return file_id
         except:
             # TODO: log error
@@ -495,7 +505,9 @@ class SyncManager(object):
             try:
                 img_request = requests.get(url, stream=True)
                 if img_request:
-                    if 'text/xml' in img_request.headers.get('content-type'):
+                    img_headers = img_request.headers.get('content-type')
+
+                    if 'text/xml' in img_headers or "text/html" in img_headers:
                         # TODO : Log error
                         return None
                     img_data = img_request.content
@@ -519,14 +531,15 @@ class SyncManager(object):
             return None
 
     def add_image_to_organization(self, url, organization):
-        image_url = self.generate_image_url(url)
-        image_data = self.download_image(image_url)
+        image_id = self.get_drive_file_id(url)
+        image_data = self.gsheets_api.download_media_by_id(image_id)
         image_blob = self.get_image_blob(image_data)
 
         if image_blob:
             setattr(organization, 'image', image_blob)
             return url
         else:
+            setattr(person, 'image', None)
             return url
 
     def invalidate_cache(self):

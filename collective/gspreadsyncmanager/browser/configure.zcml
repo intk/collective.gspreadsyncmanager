@@ -19,6 +19,13 @@
     />
 
     <browser:page
+        name="sync_all_organizations"
+        for="*"
+        class=".views.SyncAllOrganizations"
+        permission="cmf.ManagePortal"
+    />
+
+    <browser:page
         name="sync_all_persons"
         for="*"
         class=".views.SyncAllPersons"

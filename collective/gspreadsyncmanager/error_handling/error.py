@@ -47,6 +47,10 @@ class OrganizationNotFoundError(Error):
     """Errors related to handling the response from the API."""
     pass
 
+class PersonNotFoundError(Error):
+    """Errors related to handling the response from the API."""
+    pass
+
 # 
 # Error handling
 #
@@ -68,12 +72,16 @@ def _raise_response_handling_error(message):
 def _raise_organization_not_found_error(message):
     raise OrganizationNotFoundError(message)
 
+def _raise_person_not_found_error(message):
+    raise PersonNotFoundError(message)
+
 def raise_error(error_type, message):
     switcher = {
         'requestSetupError': _raise_request_setup_error,
         'requestError': _raise_request_error,
         'requestHandlingError': _raise_response_handling_error,
         'organizationNotFoundError': _raise_organization_not_found_error,
+        'personNotFoundError': _raise_person_not_found_error,
         'validationError': _raise_validation_error
     }
 

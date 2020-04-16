@@ -13,6 +13,8 @@ import sys
 from datetime import datetime
 from collective.gspreadsyncmanager.utils import DATE_FORMAT
 
+
+
 try:
     from urllib.parse import urlencode
 except ImportError:
@@ -25,7 +27,15 @@ from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_t
 
 # Google spreadsheet dependencies
 import gspread
+
+# API
 from oauth2client.service_account import ServiceAccountCredentials
+from apiclient import discovery, errors
+from httplib2 import Http
+from oauth2client import client, file, tools
+from apiclient.http import MediaFileUpload, MediaIoBaseDownload
+
+import os, io
 import json
 
 class APIConnection(object):
@@ -35,13 +45,11 @@ class APIConnection(object):
     #
 
     MINIMUM_SIZE = 1
-    EMAIL_ADDRESS_DOMAIN = "@intk.com"
 
     # API mapping field / column
     API_MAPPING = {
         "name": 0,
         "google_ads_id": 1,
-        "type": 16,
         "picture": 4,
         "type": 7
     }
@@ -59,6 +67,8 @@ class APIConnection(object):
 
         self.client = self.authenticate_api()
         self.data = self.init_spreadsheet_data()
+        self.drive = self.authenticate_drive_api()
+
 
     def init_spreadsheet_data(self):
 
@@ -91,6 +101,30 @@ class APIConnection(object):
         creds = ServiceAccountCredentials.from_json_keyfile_dict(self.json_key, self.scope)
         client = gspread.authorize(creds)
         return client
+
+    def authenticate_drive_api(self): #TODO: needs validation and error handling
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(self.json_key, self.scope)
+        http = creds.authorize(Http())
+        drive = discovery.build('drive', 'v3', http=http, cache_discovery=False)
+        return drive
+
+    def download_media_by_id(self, media_id):
+        if media_id:
+            try:
+                request = self.drive.files().get_media(fileId=media_id)
+                fh = io.BytesIO()
+
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while done is False:
+                    status, done = downloader.next_chunk()
+                fh.seek(0)
+                return fh.read()
+            except:
+                raise_error('responseHandlingError', 'Error download the image file with ID: %s' %(media_id))
+                return None
+        else:
+            return None
 
     # Transformations 
     def transform_data(self, raw_data): #TODO: needs validation and error handling
