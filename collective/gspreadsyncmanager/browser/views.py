@@ -24,6 +24,9 @@ from collective.gspreadsyncmanager.utils import get_api_settings, get_api_settin
 from collective.gspreadsyncmanager.error_handling.error import raise_error
 from collective.gspreadsyncmanager.logging.logging import logger
 import plone.api
+from collective.taskqueue.interfaces import ITaskQueue
+from collective.taskqueue import taskqueue
+
 
 # Google Spreadsheets connection
 import gspread
@@ -33,6 +36,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from plone.registry import Registry
 import transaction
+
 
 # TESTS API
 
@@ -80,6 +84,70 @@ def test_get_organization_by_id():
 #
 # Sync Person
 #
+
+class QueueSyncPerson(BrowserView):
+
+    def __call__(self):
+        return self.queue_sync()
+
+    def queue_sync(self):
+        redirect_url = self.context.absolute_url()
+
+        QUEUE_LIMIT = 1
+        QUEUE_VIEW = "sync_person"
+
+        queue_view_path = self.context.getPhysicalPath()
+        queue_size = len(getUtility(ITaskQueue, name='sync'))
+
+        queue_view_path_url = "/".join(queue_view_path)
+        queue_view_url = "%s/%s" %(queue_view_path_url, QUEUE_VIEW)
+        
+        print("URL: %s" %(queue_view_url))
+        print("Queue size: %s" %(queue_size))
+
+        messages = IStatusMessage(self.request)
+
+        if queue_size < QUEUE_LIMIT:
+            sync_id = taskqueue.add(url=queue_view_url, queue="sync")
+            print("Run sync with ID: '%s'" %(sync_id))
+            messages.add(u"Sync ID '%s' is now triggered." %(sync_id), type=u"info")
+        else:
+            messages.add(u"There is one sync currently running. Try again later.", type=u"warning")
+
+        raise Redirect(redirect_url)
+
+class QueueSyncAllPersons(BrowserView):
+
+    def __call__(self):
+        return self.queue_sync()
+
+    def queue_sync(self):
+        redirect_url = self.context.absolute_url()
+
+        QUEUE_LIMIT = 1
+        QUEUE_VIEW = "sync_all_persons"
+
+        queue_view_path = self.context.getPhysicalPath()
+        queue_size = len(getUtility(ITaskQueue, name='sync'))
+
+        queue_view_path_url = "/".join(queue_view_path)
+        queue_view_url = "%s/%s" %(queue_view_path_url, QUEUE_VIEW)
+        
+        print("URL: %s" %(queue_view_url))
+        print("Queue size: %s" %(queue_size))
+
+        messages = IStatusMessage(self.request)
+
+        if queue_size < QUEUE_LIMIT:
+            sync_id = taskqueue.add(url=queue_view_url, queue="sync")
+            print("Run sync with ID: '%s'" %(sync_id))
+            messages.add(u"Sync ID '%s' is now triggered." %(sync_id), type=u"info")
+        else:
+            messages.add(u"There is one sync currently running. Try again later.", type=u"warning")
+
+        raise Redirect(redirect_url)
+
+
 
 class SyncPerson(BrowserView):
 
