@@ -383,7 +383,7 @@ class SyncManager(object):
     def validate_organization_data(self, organization, organization_data):
         validated = True # Needs validation
         if validated:
-            organization.reindexObject()
+            organization.reindexObject(idxs=["Title"])
             transaction.get().commit()
             return organization
         else:
