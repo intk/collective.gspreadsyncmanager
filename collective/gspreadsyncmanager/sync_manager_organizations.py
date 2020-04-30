@@ -110,9 +110,9 @@ class SyncManager(object):
 
         updated_organization = self.publish_based_on_current_state(organization)
 
-        if translate:
-            for extra_language in self.EXTRA_LANGUAGES:
-                translated_organization = self.translate_organization(updated_organization, organization_id, extra_language)
+        # DO NOT translate
+        #    for extra_language in self.EXTRA_LANGUAGES:
+        #        translated_organization = self.translate_organization(updated_organization, organization_id, extra_language)
 
         organization = self.validate_organization_data(organization, organization_data)
 
@@ -274,10 +274,10 @@ class SyncManager(object):
         plone.api.content.transition(obj=organization, to_state="private")
         logger("[Status] Unpublished organization with ID: '%s'" %(getattr(organization, 'google_ads_id', '')))
 
-        translated_organization = self.check_translation_exists(organization, 'nl') #TODO: needs fix for language
-        if translated_organization:
-            plone.api.content.transition(obj=translated_organization, to_state="private")
-            logger("[Status] Unpublished organization translation with ID: '%s'" %(getattr(organization, 'google_ads_id', '')))
+        #translated_organization = self.check_translation_exists(organization, 'nl') #TODO: needs fix for language
+        #if translated_organization:
+        #    plone.api.content.transition(obj=translated_organization, to_state="private")
+        #    logger("[Status] Unpublished organization translation with ID: '%s'" %(getattr(organization, 'google_ads_id', '')))
 
         return organization
 

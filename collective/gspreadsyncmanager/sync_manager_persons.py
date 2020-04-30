@@ -42,15 +42,15 @@ class SyncManager(object):
     # Init methods 
     #  
     DEFAULT_CONTENT_TYPE = "Person" # TODO: should come from settings
-    DEFAULT_FOLDER = "/en/about/team" # TODO: should come from settings
+    DEFAULT_FOLDER = "/en/team" # TODO: should come from settings
     DOWNLOAD_URL_TEMPLATE = "https://drive.google.com/u/1/uc?id=%s&export=download"
     MAIN_LANGUAGE = "en"
     EXTRA_LANGUAGES = ["nl"]
     TRANSLATABLE_FIELDS = ['title', 'phone', 'email', 'pictureUrl', 'image']
 
     DEFAULT_FOLDERS = {
-        "en": "/en/about/team",
-        "nl": "/nl/over/team"
+        "colleague": "/en/team/colleagues",
+        "intern": "/en/team/interns"
     }
 
     def __init__(self, options):
@@ -102,9 +102,9 @@ class SyncManager(object):
 
         update_person = self.publish_based_on_current_state(person)
 
-        # translate person
-        for extra_language in self.EXTRA_LANGUAGES:
-            translated_person = self.translate_person(updated_person, person_id, extra_language)
+        # DO NOT translate person
+        # for extra_language in self.EXTRA_LANGUAGES:
+        #    translated_person = self.translate_person(updated_person, person_id, extra_language)
 
         updated_person = self.validate_person_data(updated_person, person_data)
 
@@ -165,9 +165,11 @@ class SyncManager(object):
         
         try:
             title = person_data['fullname']
-            new_person_id = normalize_id(title)
+            person_type = person_data['type']
 
-            container = self.get_container()
+            new_person_id = normalize_id(title)
+            container = self.get_container(person_type=person_type)
+
             new_person = plone.api.content.create(container=container, type=self.DEFAULT_CONTENT_TYPE, id=new_person_id, safe_id=True, title=title)
             logger("[Status] Person with ID '%s' is now created. URL: %s" %(person_id, new_person.absolute_url()))
             updated_person = self.update_person(person_id, new_person, person_data)
@@ -298,8 +300,9 @@ class SyncManager(object):
                 logger('[Error] Person ID value cannot be found in the brain url: %s' %(website_person.getURL()), 'requestHandlingError')
         return website_persons_data
 
-    def get_container(self):
-        container = plone.api.content.get(path=self.DEFAULT_FOLDER)
+    def get_container(self, person_type="colleague"):
+        person_type = person_type.lower()
+        container = plone.api.content.get(path=self.DEFAULT_FOLDERS.get(person_type, self.DEFAULT_FOLDER))
         return container
 
     # FIELDS
