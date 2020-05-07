@@ -98,6 +98,8 @@ class SyncManager(object):
 
         cache_invalidated = self.invalidate_cache()
         
+        transaction.get().commit()
+        
         return organization_list
 
     #

@@ -20,7 +20,7 @@ from zope.component import getUtility
 #
 # Product dependencies
 #
-from collective.gspreadsyncmanager.utils import get_api_settings, get_api_settings_persons, get_datetime_today, get_datetime_future, clean_whitespaces, phonenumber_to_id
+from collective.gspreadsyncmanager.utils import get_api_settings, get_api_settings_persons, get_datetime_today, get_datetime_future, clean_whitespaces, phonenumber_to_id, generate_person_id
 from collective.gspreadsyncmanager.error_handling.error import raise_error
 from collective.gspreadsyncmanager.logging.logging import logger
 import plone.api
@@ -157,9 +157,7 @@ class SyncPerson(BrowserView):
     def sync(self):
 
         # Get the necessary information to call the api and return a response
-        context_person_id_raw = getattr(self.context, 'phone', '')
-        context_person_title = getattr(self.context, 'email', '')
-        context_person_id = phonenumber_to_id(context_person_id_raw, context_person_title)
+        context_person_id = generate_person_id(getattr(self.context, 'title', ''))
 
         redirect_url = self.context.absolute_url()
         messages = IStatusMessage(self.request)

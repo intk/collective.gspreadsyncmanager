@@ -21,7 +21,7 @@ except ImportError:
 
 # Product dependencies
 from collective.gspreadsyncmanager.error_handling.error import raise_error
-from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_to_id
+from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_to_id, generate_person_id
 
 # Google spreadsheet dependencies
 import gspread
@@ -45,7 +45,12 @@ class APIConnection(object):
         "fullname": 14,
         "phone": 16,
         "picture": 17,
-        "type": 7
+        "type": 7,
+        "market": 8,
+        "start_date": 1,
+        "colleague": 0,
+        "mentor": 9,
+        "team": 10
     }
 
     #
@@ -119,12 +124,12 @@ class APIConnection(object):
                     new_person[fieldname] = row[sheet_position]
 
                 email_address = self.generate_emailaddress(new_person["name"])
-                phone_number_id = phonenumber_to_id(new_person["phone"], email_address)
+                person_id = generate_person_id(new_person["fullname"])
 
                 new_person['email'] = email_address
-                new_person['_id'] = phone_number_id
+                new_person['_id'] = person_id
 
-                data[phone_number_id] = new_person
+                data[person_id] = new_person
 
         return data
 

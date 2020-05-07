@@ -15,6 +15,8 @@ from plone.i18n.normalizer import idnormalizer
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from zope.component import getUtility
+from plone.i18n.normalizer.interfaces import IIDNormalizer
 
 #
 # Common definitions
@@ -113,5 +115,12 @@ def phonenumber_to_id(phone_number, name=""):
         
     unique_id = "%s%s" %(name, phone_number)
     return clean_whitespaces(unique_id)
+
+def generate_person_id(fullname):
+    normalizer = getUtility(IIDNormalizer)
+    _id = "%s" % normalizer.normalize(fullname)
+    return _id
+
+    
 
 

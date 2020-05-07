@@ -34,7 +34,7 @@ from .error_handling.error import raise_error
 from .logging.logging import logger
 
 # Utils
-from .utils import str2bool, normalize_id, phonenumber_to_id
+from .utils import str2bool, normalize_id, phonenumber_to_id, generate_person_id
 from .utils import get_datetime_today, get_datetime_future, DATE_FORMAT
 
 class SyncManager(object):
@@ -88,6 +88,7 @@ class SyncManager(object):
 
         cache_invalidated = self.invalidate_cache()
         
+        transaction.get().commit()
         return person_list
 
     #
@@ -260,18 +261,18 @@ class SyncManager(object):
 
     def publish_person(self, person):
         plone.api.content.transition(obj=person, to_state="published")
-        logger("[Status] Published person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
+        logger("[Status] Published person with ID: '%s'" %(generate_person_id(getattr(person, 'title', ''))))
         return person
 
     # PLONE WORKLFLOW - unpublish
     def unpublish_person(self, person):
         plone.api.content.transition(obj=person, to_state="private")
-        logger("[Status] Unpublished person with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
+        logger("[Status] Unpublished person with ID: '%s'" %(generate_person_id(getattr(person, 'title', ''))))
 
-        translated_person = self.check_translation_exists(person, 'nl') #TODO: needs fix for language
-        if translated_person:
-            plone.api.content.transition(obj=translated_person, to_state="private")
-            logger("[Status] Unpublished person translation with ID: '%s'" %(phonenumber_to_id(getattr(person, 'phone', ''), getattr(person, "email", ""))))
+        #translated_person = self.check_translation_exists(person, 'nl') #TODO: needs fix for language
+        #if translated_person:
+        #    plone.api.content.transition(obj=translated_person, to_state="private")
+        #    logger("[Status] Unpublished person translation with ID: '%s'" %(generate_person_id(getattr(person, 'title', ''))))
 
         return person
 
@@ -401,7 +402,8 @@ class SyncManager(object):
         SPECIAL_FIELDS_HANDLERS = {
             "title": self._transform_person_title,
             "type": self._transform_person_type,
-            "picture": self._transform_person_picture
+            "picture": self._transform_person_picture,
+            "market": self._transform_person_market
         }
 
         if fieldname in SPECIAL_FIELDS_HANDLERS:
@@ -424,6 +426,15 @@ class SyncManager(object):
         else:
             person.setSubject([fieldvalue])
             
+        return [fieldvalue]
+
+    def _transform_person_market(self, person, fieldname, fieldvalue):
+        if fieldvalue:
+            all_markets = fieldvalue.split(',')
+            setattr(person, 'market', all_markets)
+        else:
+            setattr(person, 'market', [])
+
         return [fieldvalue]
 
     def _transform_person_picture(self, person, fieldname, fieldvalue):
