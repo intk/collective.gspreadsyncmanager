@@ -431,7 +431,8 @@ class SyncManager(object):
     def _transform_person_market(self, person, fieldname, fieldvalue):
         if fieldvalue:
             all_markets = fieldvalue.split(',')
-            setattr(person, 'market', all_markets)
+            all_markets_transform = [market.strip() for market in all_markets]
+            setattr(person, 'market', all_markets_transform)
         else:
             setattr(person, 'market', [])
 

@@ -24,6 +24,10 @@ CORE_ORGANIZATIONS = {
 	"google_ads_id": "google_ads_id",
 	"type":"subjects",
 	"picture": "pictureUrl",
+	"country": "country",
+	"organization_language": "organization_language",
+	"city":"city",
+	
 	"_id":""
 }
 

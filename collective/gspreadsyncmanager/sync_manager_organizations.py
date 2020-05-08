@@ -385,7 +385,7 @@ class SyncManager(object):
     def validate_organization_data(self, organization, organization_data):
         validated = True # Needs validation
         if validated:
-            organization.reindexObject(idxs=["Title"])
+            organization.reindexObject(idxs=["Title", "country", "Subject"])
             transaction.get().commit()
             return organization
         else:
@@ -408,7 +408,8 @@ class SyncManager(object):
         SPECIAL_FIELDS_HANDLERS = {
             "title": self._transform_organization_title,
             "type": self._transform_organization_type,
-            "picture": self._transform_organization_picture
+            "picture": self._transform_organization_picture,
+            "country": self._transform_organization_country
         }
 
         if fieldname in SPECIAL_FIELDS_HANDLERS:
@@ -425,8 +426,8 @@ class SyncManager(object):
         if 'frontpage' in current_subjects:
             subjects = ['frontpage', fieldvalue]
             organization.setSubject(subjects)
-        elif 'frontpage-collection' in current_subjects:
-            subjects = ['frontpage-collection', fieldvalue]
+        elif 'main-organization-page' in current_subjects:
+            subjects = ['main-organization-page', fieldvalue]
             organization.setSubject(subjects)
         else:
             organization.setSubject([fieldvalue])
@@ -442,6 +443,17 @@ class SyncManager(object):
             setattr(organization, self.TAXONOMY_NAME, taxonomies)
             
         return [fieldvalue]
+
+    def _transform_organization_country(self, organization, fieldname, fieldvalue):
+        if fieldvalue:
+            all_countries = fieldvalue.split(',')
+            all_countries_transform = [country.strip() for country in all_countries]
+            setattr(organization, 'country', all_countries_transform)
+        else:
+            setattr(organization, 'country', [])
+
+        return [fieldvalue]
+
 
     def get_taxonomy_id(self, taxonomy):
         taxonomy_id = None

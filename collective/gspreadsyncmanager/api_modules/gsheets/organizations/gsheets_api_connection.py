@@ -51,7 +51,10 @@ class APIConnection(object):
         "name": 0,
         "google_ads_id": 1,
         "picture": 4,
-        "type": 7
+        "type": 7,
+        "country": 9,
+        "organization_language": 8,
+        "city": 10
     }
 
     #
