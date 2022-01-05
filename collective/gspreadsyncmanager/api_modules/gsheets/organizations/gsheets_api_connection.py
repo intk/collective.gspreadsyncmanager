@@ -50,11 +50,11 @@ class APIConnection(object):
     API_MAPPING = {
         "name": 0,
         "google_ads_id": 1,
-        "picture": 4,
-        "type": 7,
-        "country": 9,
-        "organization_language": 8,
-        "city": 10
+        "picture": 3,
+        "type": 6,
+        "country": 8,
+        "organization_language": 9,
+        "city": 9
     }
 
     #

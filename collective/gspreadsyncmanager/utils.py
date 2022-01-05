@@ -121,6 +121,10 @@ def generate_person_id(fullname):
     _id = "%s" % normalizer.normalize(fullname)
     return _id
 
+def generate_safe_id(fullname):
+    normalizer = getUtility(IIDNormalizer)
+    _id = "%s" % normalizer.normalize(fullname)
+    return _id
     
 
 

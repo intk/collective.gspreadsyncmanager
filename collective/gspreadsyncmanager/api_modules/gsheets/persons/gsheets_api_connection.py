@@ -21,7 +21,7 @@ except ImportError:
 
 # Product dependencies
 from collective.gspreadsyncmanager.error_handling.error import raise_error
-from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_to_id, generate_person_id
+from collective.gspreadsyncmanager.utils import clean_whitespaces, phonenumber_to_id, generate_person_id, generate_safe_id
 
 # Google spreadsheet dependencies
 import gspread
@@ -42,15 +42,15 @@ class APIConnection(object):
     # API mapping field / column
     API_MAPPING = {
         "name": 0,
-        "fullname": 14,
-        "phone": 16,
-        "picture": 17,
-        "type": 7,
-        "market": 8,
+        "fullname": 18,
+        "phone": 24,
+        "picture": 25,
+        "type": 11,
+        "market": 13,
         "start_date": 1,
         "colleague": 0,
-        "mentor": 9,
-        "team": 10
+        "mentor": 14,
+        "team": 15
     }
 
     #
@@ -134,6 +134,7 @@ class APIConnection(object):
         return data
 
     def generate_emailaddress(self, name):
+        name = generate_safe_id(name)
         name = clean_whitespaces(name)
         emailaddress = "%s%s" %(name, self.EMAIL_ADDRESS_DOMAIN)
         return emailaddress
