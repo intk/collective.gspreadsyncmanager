@@ -24,8 +24,7 @@ from plone.namedfile.file import NamedBlobImage, NamedBlobFile
 from plone.app.multilingual.interfaces import ITranslationManager
 
 # Product dependencies
-from collective.person.interfaces import IPerson
-from eea.cache.event import InvalidateMemCacheEvent
+#from eea.cache.event import InvalidateMemCacheEvent
 
 # Error handling
 from .error_handling.error import raise_error
@@ -41,12 +40,12 @@ class SyncManager(object):
     #
     # Init methods 
     #  
-    DEFAULT_CONTENT_TYPE = "Person" # TODO: should come from settings
+    DEFAULT_CONTENT_TYPE = "person" # TODO: should come from settings
     DEFAULT_FOLDER = "/en/team" # TODO: should come from settings
     DOWNLOAD_URL_TEMPLATE = "https://drive.google.com/u/1/uc?id=%s&export=download"
     MAIN_LANGUAGE = "en"
     EXTRA_LANGUAGES = ["nl"]
-    TRANSLATABLE_FIELDS = ['title', 'phone', 'email', 'pictureUrl', 'image']
+    TRANSLATABLE_FIELDS = ['title', 'phone', 'email', 'pictureUrl', 'image', 'preview_image']
 
     DEFAULT_FOLDERS = {
         "colleague": "/en/team/colleagues",
@@ -251,10 +250,10 @@ class SyncManager(object):
     def publish_based_on_current_state(self, person):
         state = plone.api.content.get_state(obj=person)
         if state != "published":
-            if getattr(person, 'image', None):
+            if getattr(person, 'preview_image', None):
                 updated_person = self.publish_person(person)
         else:
-            if not getattr(person, 'image', None):
+            if not getattr(person, 'preview_image', None):
                 updated_person = self.unpublish_person(person)
 
         return person
@@ -432,6 +431,14 @@ class SyncManager(object):
         if fieldvalue:
             all_markets = fieldvalue.split(',')
             all_markets_transform = [market.strip() for market in all_markets]
+
+            current_subjects = person.Subject()
+            current_subjects = list(current_subjects)
+
+            for market in all_markets_transform:
+                current_subjects.append(market)
+
+            person.setSubject(current_subjects)
             setattr(person, 'market', all_markets_transform)
         else:
             setattr(person, 'market', [])
@@ -456,7 +463,7 @@ class SyncManager(object):
 
             return url
         else:
-            setattr(person, 'image', None)
+            setattr(person, 'preview_image', None)
             return url
 
     def get_drive_file_id(self, url):
@@ -518,10 +525,10 @@ class SyncManager(object):
         image_blob = self.get_image_blob(image_data)
 
         if image_blob:
-            setattr(person, 'image', image_blob)
+            setattr(person, 'preview_image', image_blob)
             return url
         else:
-            setattr(person, 'image', None)
+            setattr(person, 'preview_image', None)
             return url
 
     def invalidate_cache(self):

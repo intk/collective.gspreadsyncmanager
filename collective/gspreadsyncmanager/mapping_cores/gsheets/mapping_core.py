@@ -7,7 +7,7 @@ CORE = {
 	"phone":"phone",
 	"email":"email",
 
-	"_id":"",
+	"_id":"person_id",
 	"type":"subjects",
 	"name": "",
 
