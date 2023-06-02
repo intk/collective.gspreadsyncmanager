@@ -42,15 +42,15 @@ class APIConnection(object):
     # API mapping field / column
     API_MAPPING = {
         "name": 0,
-        "fullname": 19,
-        "phone": 25,
-        "picture": 26,
-        "type": 11,
-        "market": 13,
+        "fullname": 20,
+        "phone": 26,
+        "picture": 27,
+        "type": 12,
+        "market": 14,
         "start_date": 1,
         "colleague": 0,
-        "mentor": 14,
-        "team": 15
+        "mentor": 15,
+        "team": 16
     }
 
     #
